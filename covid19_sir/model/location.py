@@ -3,9 +3,10 @@ import numpy as np
 from enum import Enum, auto
 
 from model.base import (AgentBase, SimulationState, flip_coin, SimulationParameters,
-get_parameters, unique_id, random_selection, normal_ci, normal_cap_ci, logger)
+                        get_parameters, unique_id, random_selection, normal_ci, normal_cap_ci, logger)
 from model.utils import RestaurantType
 from model.human import Human
+
 
 class Location(AgentBase):
     def __init__(self, covid_model):
@@ -25,9 +26,9 @@ class Location(AgentBase):
             # Only parameters in s (defined in constructor of super) can
             # be overwritten
             check = False
-            for k, v in s: 
+            for k, v in s:
                 if (k == key): check = True
-            assert(check)
+            assert (check)
         self.custom_parameters = {}
         for key, value in s:
             self.custom_parameters[key] = args.get(key, value)
@@ -56,10 +57,11 @@ class Location(AgentBase):
                     if flip_coin(self.spreading_rate / len(self.humans)):
                         self.check_spreading(h1, h2)
 
+
 class BuildingUnit(Location):
     def __init__(self, capacity, covid_model, **kwargs):
         super().__init__(covid_model)
-        self.set_custom_parameters([\
+        self.set_custom_parameters([ \
             ('contagion_probability', 0.0)
         ], kwargs)
         self.capacity = capacity
@@ -67,12 +69,13 @@ class BuildingUnit(Location):
 
     def step(self):
         super().step()
-        if self.covid_model.current_state == SimulationState.MORNING_AT_HOME or\
-           self.covid_model.current_state == SimulationState.MAIN_ACTIVITY:
+        if self.covid_model.current_state == SimulationState.MORNING_AT_HOME or \
+                self.covid_model.current_state == SimulationState.MAIN_ACTIVITY:
             self.spread_infection()
 
     def __repr__(self):
         return "BuildingUnit"
+
 
 class HomogeneousBuilding(Location):
     def __init__(self, building_capacity, covid_model, **kwargs):
@@ -80,25 +83,31 @@ class HomogeneousBuilding(Location):
         self.unit_args = kwargs
         self.capacity = building_capacity
         self.allocation = {}
+
     def get_unit(self, human):
         return self.allocation[human]
+
     def __repr__(self):
         return "HomogeneousBuilding"
+
 
 class FunGatheringSpot(Location):
     def __init__(self, capacity, covid_model, **kwargs):
         super().__init__(covid_model)
-        self.set_custom_parameters([\
+        self.set_custom_parameters([ \
             ('contagion_probability', normal_cap_ci(0.0035, 0.005))
         ], kwargs)
         self.capacity = capacity
         self.available = True
+
     def step(self):
         super().step()
         if self.covid_model.current_state == SimulationState.POST_WORK_ACTIVITY:
             self.spread_infection()
+
     def __repr__(self):
         return "FunGatheringSpot"
+
 
 class Restaurant(Location):
     def __init__(self, capacity, restaurant_type, is_outdoor, covid_model, **kwargs):
@@ -127,7 +136,7 @@ class Restaurant(Location):
         self.available = capacity
         self.restaurant_type = restaurant_type
         self.is_outdoor = is_outdoor
-        self.set_custom_parameters([\
+        self.set_custom_parameters([ \
             ('contagion_probability', cp[restaurant_type][is_outdoor])
         ], kwargs)
 
@@ -147,6 +156,7 @@ class Restaurant(Location):
     def __repr__(self):
         return "Restaurant"
 
+
 class District(Location):
     def __init__(self, name, covid_model, **kwargs):
         self.allocation = {}
@@ -162,9 +172,9 @@ class District(Location):
     def get_available_restaurant(self, people_count, outdoor, restaurant_type):
         for location in self.locations:
             if isinstance(location, Restaurant) and \
-                location.restaurant_type == restaurant_type and \
-                location.is_outdoor == outdoor and \
-                (location.available * self.get_parameter('allowed_restaurant_capacity')) >= people_count:
+                    location.restaurant_type == restaurant_type and \
+                    location.is_outdoor == outdoor and \
+                    (location.available * self.get_parameter('allowed_restaurant_capacity')) >= people_count:
                 return location
         logger().info("No restaurant is available")
         return None
@@ -197,7 +207,7 @@ class District(Location):
         count = 0
         while True:
             count += 1
-            assert count < (len(self.locations) * 1000) # infinit loop
+            assert count < (len(self.locations) * 1000)  # infinit loop
             building = random_selection(self.locations)
             if not isinstance(building, building_type): continue
             for unit in building.locations:
@@ -218,10 +228,11 @@ class District(Location):
     def _debug(self):
         super()._debug()
 
-    def allocate(self, humans, same_building=False, same_unit=False, exclusive=False, building_type=HomogeneousBuilding):
-        assert (exclusive and same_unit and same_building) or\
-               (not exclusive and same_unit and same_building) or\
-               (not exclusive and not same_unit and same_building) or\
+    def allocate(self, humans, same_building=False, same_unit=False, exclusive=False,
+                 building_type=HomogeneousBuilding):
+        assert (exclusive and same_unit and same_building) or \
+               (not exclusive and same_unit and same_building) or \
+               (not exclusive and not same_unit and same_building) or \
                (not exclusive and not same_unit and not same_building)
         building = None
         unit = None
@@ -244,7 +255,7 @@ class District(Location):
             if len(building.locations) > 0:
                 txt = txt + f"{type(building).__name__}: {building.capacity} units (each with capacity for {building.locations[0].capacity} people.) "
             else:
-                txt = txt + f"{type(building).__name__}: {building.capacity} units with no locations"    
+                txt = txt + f"{type(building).__name__}: {building.capacity} units with no locations"
             sum_allocated = 0
             total_allocated = 0
             for unit in building.locations:
@@ -255,4 +266,3 @@ class District(Location):
             district_total_humans += sum_allocated
         txt = txt + f"Total of {district_total_humans} people allocated in this district.\n"
         return txt
-

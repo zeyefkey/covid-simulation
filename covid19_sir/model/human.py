@@ -3,10 +3,11 @@ import numpy as np
 from enum import Enum, auto
 
 from model.base import (AgentBase, flip_coin, normal_cap, roulette_selection,
-get_parameters, unique_id, linear_rescale, normal_cap_ci, logger)
+                        get_parameters, unique_id, linear_rescale, normal_cap_ci, logger)
 from model.utils import (WorkClasses, WeekDay, InfectionStatus, DiseaseSeverity,
-SocialPolicy, SocialPolicyUtil, InfectionStatus, SimulationState, Dilemma,DilemmaDecisionHistory,
-TribeSelector, RestaurantType)
+                         SocialPolicy, SocialPolicyUtil, InfectionStatus, SimulationState, Dilemma,
+                         DilemmaDecisionHistory, TribeSelector, RestaurantType)
+
 
 class WorkInfo:
     work_class = None
@@ -33,14 +34,15 @@ class WorkInfo:
         else:
             return self.base_income
 
+
 class IndividualProperties:
     # All in [0..1]
     risk_tolerance = 0.0
     herding_behavior = 0.0
     extroversion = 0.5
 
-class Human(AgentBase):
 
+class Human(AgentBase):
     count = 1
 
     @staticmethod
@@ -68,13 +70,13 @@ class Human(AgentBase):
         msp = moderate_severity_probs[index]
         hsp = high_severity_probs[index]
         mfd = flip_coin(death_probs[index])
-        if age <= 1: 
+        if age <= 1:
             human = Infant(covid_model, age, msp, hsp, mfd)
-        elif age <= 4: 
+        elif age <= 4:
             human = Toddler(covid_model, age, msp, hsp, mfd)
-        elif age <= 18: 
+        elif age <= 18:
             human = K12Student(covid_model, age, msp, hsp, mfd)
-        elif age <= 64: 
+        elif age <= 64:
             human = Adult(covid_model, age, msp, hsp, mfd)
         else:
             human = Elder(covid_model, age, msp, hsp, mfd)
@@ -108,7 +110,7 @@ class Human(AgentBase):
         self.hospitalization_duration = 0
         self.infection_status = InfectionStatus.SUSCEPTIBLE
         self.hospitalized = False
-        if self.is_worker(): 
+        if self.is_worker():
             self.setup_work_info()
             self.covid_model.global_count.work_population += 1
         self.is_dead = False
@@ -120,7 +122,7 @@ class Human(AgentBase):
     def initialize_individual_properties(self):
         super().initialize_individual_properties()
         self.properties.extroversion = normal_cap(get_parameters().get('extroversion_mean'),
-                get_parameters().get('extroversion_stdev'), 0.0, 1.0)
+                                                  get_parameters().get('extroversion_stdev'), 0.0, 1.0)
         self.dilemma_history = DilemmaDecisionHistory()
 
     def parameter_changed(self):
@@ -130,11 +132,11 @@ class Human(AgentBase):
         self.isolation_cheater = flip_coin(get_parameters().get('isolation_cheater_rate'))
         self.immune = flip_coin(get_parameters().get('imune_rate'))
         if flip_coin(get_parameters().get('weareable_adoption_rate')):
-            self.early_symptom_detection = 1 # number of days
+            self.early_symptom_detection = 1  # number of days
         else:
             self.early_symptom_detection = 0
         self.initialize_individual_properties()
-        
+
     def step(self):
         super().step()
         # The default behavior for Humans are just stay at home all day. Disease is
@@ -168,7 +170,6 @@ class Human(AgentBase):
             shape = get_parameters().get('mild_period_duration_shape')
             scale = get_parameters().get('mild_period_duration_scale')
             self.mild_duration = np.random.gamma(shape, scale) + self.infection_incubation
-
 
     def disease_evolution(self):
         # https://media.tghn.org/medialibrary/2020/06/ISARIC_Data_Platform_COVID-19_Report_8JUN20.pdf
@@ -247,7 +248,7 @@ class Human(AgentBase):
             self.covid_model.global_count.total_hospitalized -= 1
             self.hospitalized = False
         self.is_dead = True
-        
+
     def is_infected(self):
         return self.infection_status == InfectionStatus.INFECTED
 
@@ -256,7 +257,7 @@ class Human(AgentBase):
             if self.is_symptomatic() or flip_coin(get_parameters().get('asymptomatic_contagion_probability')):
                 return True
         return False
-    
+
     def is_symptomatic(self):
         return self.is_infected() and self.infection_days_count >= self.infection_incubation
 
@@ -268,14 +269,14 @@ class Human(AgentBase):
                 return hd
             else:
                 return pd
-        
+
     def personal_decision(self, dilemma):
         answer = False
         if dilemma == Dilemma.GO_TO_WORK_ON_LOCKDOWN:
             if self.work_info.work_class == WorkClasses.RETAIL:
                 pd = flip_coin(self.properties.risk_tolerance)
-                hd = self.dilemma_history.herding_decision(self,dilemma, TribeSelector.FRIEND,
-                        get_parameters().get('min_behaviors_to_copy'))
+                hd = self.dilemma_history.herding_decision(self, dilemma, TribeSelector.FRIEND,
+                                                           get_parameters().get('min_behaviors_to_copy'))
                 answer = self._standard_decision(pd, hd)
             else:
                 answer = False
@@ -287,12 +288,12 @@ class Human(AgentBase):
             rt = self.properties.risk_tolerance
             if SocialPolicy.SOCIAL_DISTANCING in get_parameters().get('social_policies'):
                 rt = rt * rt
-            k = 3 #TODO parameter
+            k = 3  # TODO parameter
             d = self.covid_model.global_count.infected_count / self.covid_model.global_count.total_population
             rt = rt * math.exp(-k * d)
             pd = flip_coin(rt)
-            hd = self.dilemma_history.herding_decision(self,dilemma, TribeSelector.FRIEND,
-                    get_parameters().get('min_behaviors_to_copy'))
+            hd = self.dilemma_history.herding_decision(self, dilemma, TribeSelector.FRIEND,
+                                                       get_parameters().get('min_behaviors_to_copy'))
             answer = self._standard_decision(pd, hd)
             if answer: logger().info(f"{self} decided to invite friends to a restaurant")
         elif dilemma == Dilemma.ACCEPT_FRIEND_INVITATION_TO_RESTAURANT:
@@ -302,15 +303,16 @@ class Human(AgentBase):
             rt = self.properties.risk_tolerance
             if SocialPolicy.SOCIAL_DISTANCING in get_parameters().get('social_policies'):
                 rt = rt * rt
-            k = 3 # TODO parameter
+            k = 3  # TODO parameter
             d = self.covid_model.global_count.infected_count / self.covid_model.global_count.total_population
             rt = rt * math.exp(-k * d)
             pd = flip_coin(rt)
-            hd = self.dilemma_history.herding_decision(self,dilemma, TribeSelector.FRIEND,
-                    get_parameters().get('min_behaviors_to_copy'))
+            hd = self.dilemma_history.herding_decision(self, dilemma, TribeSelector.FRIEND,
+                                                       get_parameters().get('min_behaviors_to_copy'))
             answer = self._standard_decision(pd, hd)
             if answer: logger().info(f"{self} decided to accept an invitation to go to a restaurant")
-        else: assert False
+        else:
+            assert False
         for tribe in TribeSelector:
             self.dilemma_history.history[dilemma][tribe].append(answer)
         return answer
@@ -318,7 +320,7 @@ class Human(AgentBase):
     def main_activity_isolated(self):
         if self.is_infected():
             if self.disease_severity == DiseaseSeverity.MODERATE or \
-               self.disease_severity == DiseaseSeverity.HIGH:
+                    self.disease_severity == DiseaseSeverity.HIGH:
                 return True
             if self.is_symptomatic():
                 ir = get_parameters().get('symptomatic_isolation_rate')
@@ -327,7 +329,7 @@ class Human(AgentBase):
         if isinstance(self, Adult):
             for policy in get_parameters().get('social_policies'):
                 if policy in SocialPolicyUtil.locked_work_classes and \
-                   self.work_info.work_class in SocialPolicyUtil.locked_work_classes[policy]:
+                        self.work_info.work_class in SocialPolicyUtil.locked_work_classes[policy]:
                     return not self.personal_decision(Dilemma.GO_TO_WORK_ON_LOCKDOWN)
         elif isinstance(self, K12Student):
             for policy in get_parameters().get('social_policies'):
@@ -336,18 +338,17 @@ class Human(AgentBase):
                     if self.age >= lb and self.age <= ub:
                         return True
         return False
-        
+
     def is_wearing_mask(self):
         mur = get_parameters().get('mask_user_rate')
         return flip_coin(mur)
-        
 
     def is_worker(self):
         return self.age >= 19 and self.age <= 64
 
     def get_tribe(self, tribe_selector):
         pass
-            
+
     def setup_work_info(self):
         income = {
             # Income (in [0..1]) when the people is working and when he/she is isolated at home
@@ -361,7 +362,7 @@ class Human(AgentBase):
         roulette = []
         self.work_info = WorkInfo()
 
-        #TODO change to use some realistic distribution
+        # TODO change to use some realistic distribution
         count = 1
         for wclass in classes:
             roulette.append(count / len(classes))
@@ -371,13 +372,13 @@ class Human(AgentBase):
         self.work_info.base_income, self.work_info.income_loss_isolated = income[selected_class]
 
         self.work_info.can_work_from_home = \
-            selected_class ==  WorkClasses.OFFICE or \
+            selected_class == WorkClasses.OFFICE or \
             selected_class == WorkClasses.HOUSEBOUND
 
         self.work_info.meet_non_coworkers_at_work = \
             selected_class == WorkClasses.RETAIL or \
             selected_class == WorkClasses.ESSENTIAL
-           
+
         self.work_info.essential_worker = \
             selected_class == WorkClasses.ESSENTIAL
 
@@ -396,15 +397,17 @@ class Human(AgentBase):
 
 class Infant(Human):
     def initialize_individual_properties(self):
-      super().initialize_individual_properties()
-    
+        super().initialize_individual_properties()
+
+
 class Toddler(Human):
     def initialize_individual_properties(self):
-      super().initialize_individual_properties()
-    
+        super().initialize_individual_properties()
+
+
 class K12Student(Human):
     def initialize_individual_properties(self):
-      super().initialize_individual_properties()
+        super().initialize_individual_properties()
 
     def step(self):
         super().step()
@@ -416,7 +419,8 @@ class K12Student(Human):
             self.school_district.move_to(self, self.home_district)
         elif self.covid_model.current_state == SimulationState.EVENING_AT_HOME:
             self.disease_evolution()
-    
+
+
 class Adult(Human):
     def __init__(self, covid_model, age, msp, hsp, mfd):
         super().__init__(covid_model, age, msp, hsp, mfd)
@@ -424,13 +428,13 @@ class Adult(Human):
         self.days_since_last_social_event = 0
 
     def initialize_individual_properties(self):
-      super().initialize_individual_properties()
-      mean = get_parameters().get('risk_tolerance_mean')
-      stdev = get_parameters().get('risk_tolerance_stdev')
-      self.properties.risk_tolerance = normal_cap(mean, stdev, 0.0, 1.0)
-      mean = get_parameters().get('herding_behavior_mean')
-      stdev = get_parameters().get('herding_behavior_stdev')
-      self.properties.herding_behavior = normal_cap(mean, stdev, 0.0, 1.0)
+        super().initialize_individual_properties()
+        mean = get_parameters().get('risk_tolerance_mean')
+        stdev = get_parameters().get('risk_tolerance_stdev')
+        self.properties.risk_tolerance = normal_cap(mean, stdev, 0.0, 1.0)
+        mean = get_parameters().get('herding_behavior_mean')
+        stdev = get_parameters().get('herding_behavior_stdev')
+        self.properties.herding_behavior = normal_cap(mean, stdev, 0.0, 1.0)
 
     def is_working_day(self):
         return self.covid_model.get_week_day() in self.work_info.work_days
@@ -459,7 +463,7 @@ class Adult(Human):
                 if len(accepted) >= event_size: break
         if len(accepted) == 1: return
         outdoor = flip_coin(linear_rescale(self.properties.risk_tolerance, 0, 0.5))
-        if flip_coin(linear_rescale(self.work_info.base_income, 0, 1/5)):
+        if flip_coin(linear_rescale(self.work_info.base_income, 0, 1 / 5)):
             restaurant_type = RestaurantType.FANCY
         else:
             restaurant_type = RestaurantType.FAST_FOOD
@@ -509,7 +513,8 @@ class Adult(Human):
             self.working_day()
         else:
             self.non_working_day()
-    
+
+
 class Elder(Human):
     def initialize_individual_properties(self):
-      super().initialize_individual_properties()
+        super().initialize_individual_properties()
